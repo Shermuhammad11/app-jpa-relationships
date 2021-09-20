@@ -16,6 +16,7 @@ public class Faculty {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
+    @Column(nullable = false, name = "name")
     private String name;
 
     @ManyToOne

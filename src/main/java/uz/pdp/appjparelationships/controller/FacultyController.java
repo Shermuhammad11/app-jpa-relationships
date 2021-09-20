@@ -31,14 +31,27 @@ public class FacultyController {
 
     @PostMapping
     public String addFaculty(@RequestBody FacultyDto facultyDto) {
-        boolean exists = facultyRepository.existsByNameAndUniversityId(facultyDto.getName(), facultyDto.getUniversityId());
-        if (exists)
-            return "This university such faculty exist";
-        Faculty faculty = new Faculty();
-        faculty.setName(facultyDto.getName());
-        Optional<University> optionalUniversity = universityRepository.findById(facultyDto.getUniversityId());
+
+        String name = facultyDto.getName();
+        if (name == null)
+            return "Faculty Name is Empty !";
+
+        Integer universityId = facultyDto.getUniversityId();
+        if (universityId == null)
+            return "University ID is Empty !";
+
+        Optional<University> optionalUniversity =
+                universityRepository.findById(universityId);
+
         if (!optionalUniversity.isPresent())
             return "University not found";
+
+        boolean exists = facultyRepository.existsByNameAndUniversityId(name, universityId);
+        if (exists)
+            return "This university such faculty exist";
+
+        Faculty faculty = new Faculty();
+        faculty.setName(name);
         faculty.setUniversity(optionalUniversity.get());
         facultyRepository.save(faculty);
         return "Faculty saved";
@@ -67,17 +80,38 @@ public class FacultyController {
     @PutMapping("/{id}")
     public String editFaculty(@PathVariable Integer id, @RequestBody FacultyDto facultyDto) {
         Optional<Faculty> optionalFaculty = facultyRepository.findById(id);
+
         if (optionalFaculty.isPresent()) {
+
             Faculty faculty = optionalFaculty.get();
-            faculty.setName(facultyDto.getName());
-            Optional<University> optionalUniversity = universityRepository.findById(facultyDto.getUniversityId());
-            if (!optionalUniversity.isPresent()) {
-                return "University not found";
+
+            String name = facultyDto.getName();
+            if (name != null)
+                faculty.setName(facultyDto.getName());
+
+            Integer universityId = facultyDto.getUniversityId();
+
+            if (universityId != null){
+
+                Optional<University> optionalUniversity = universityRepository.findById(
+                        facultyDto.getUniversityId());
+
+                if (!optionalUniversity.isPresent())
+                    return "University not found";
+
+                faculty.setUniversity(optionalUniversity.get());
             }
-            faculty.setUniversity(optionalUniversity.get());
-            facultyRepository.save(faculty);
-            return "Faculty edited";
+
+            try {
+                facultyRepository.save(faculty);
+                return "Faculty edited";
+            }
+            catch (Exception e){
+                return "Tnis Faculty Already Exists !";
+            }
+
         }
+
         return "Faculty not found";
     }
 

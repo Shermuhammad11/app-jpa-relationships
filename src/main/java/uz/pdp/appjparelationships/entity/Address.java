@@ -10,19 +10,19 @@ import javax.persistence.*;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
+@Table(uniqueConstraints = {@UniqueConstraint(columnNames = {"city", "district", "street"})})
+
 public class Address {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;//1
 
-    @Column(nullable = false)
+    @Column(nullable = false, name = "city")
     private String city;//Toshkent
 
-    @Column(nullable = false)
+    @Column(nullable = false, name = "district")
     private String district;//Mirobod
 
-    @Column(nullable = false)
+    @Column(nullable = false, name = "street")
     private String street;//U.Nosir ko'chasi
-
-
 }
