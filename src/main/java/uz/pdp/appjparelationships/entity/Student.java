@@ -5,7 +5,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import javax.persistence.*;
-import java.util.HashSet;
 import java.util.Set;
 
 @Data
@@ -23,23 +22,12 @@ public class Student {
     @Column(nullable = false)
     private String lastName;
 
-    @OneToOne//ONE student TO ONE address *** ONE address TO ONE student
+    @OneToOne(optional = false, orphanRemoval = true)
     private Address address;
 
-    @ManyToOne
+    @ManyToOne(optional = false)
     private Group group;
 
-    @ManyToMany()
-    @JoinTable(name = "student_subject",
-                joinColumns = {@JoinColumn(name = "student_id")},
-                inverseJoinColumns = {@JoinColumn(name = "subject_id")})
-    private Set<Subject> subjects = new HashSet<>();
-
-    public void addSubject(Subject subject) {
-        this.subjects.add(subject);
-    }
-
-    public void removeSubject(Subject subject) {
-        this.getSubjects().remove(subject);
-    }
+    @ManyToMany
+    private Set<Subject> subjects;
 }

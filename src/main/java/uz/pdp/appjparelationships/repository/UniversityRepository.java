@@ -6,4 +6,7 @@ import uz.pdp.appjparelationships.entity.University;
 
 @Repository
 public interface UniversityRepository extends JpaRepository<University, Integer> {
+
+    Boolean existsByName(String name);
+
 }

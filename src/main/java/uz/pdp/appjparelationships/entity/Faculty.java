@@ -10,8 +10,9 @@ import javax.persistence.*;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"name","university_id"}))
+@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"name", "university_id"}))
 public class Faculty {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
@@ -19,6 +20,7 @@ public class Faculty {
     @Column(nullable = false, name = "name")
     private String name;
 
-    @ManyToOne
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "university_id", referencedColumnName = "id")
     private University university;
 }

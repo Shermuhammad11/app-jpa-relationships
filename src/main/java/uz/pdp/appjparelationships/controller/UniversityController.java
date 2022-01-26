@@ -1,6 +1,9 @@
 package uz.pdp.appjparelationships.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.*;
 import uz.pdp.appjparelationships.entity.Address;
 import uz.pdp.appjparelationships.entity.University;
@@ -8,116 +11,122 @@ import uz.pdp.appjparelationships.payload.UniversityDto;
 import uz.pdp.appjparelationships.repository.AddressRepository;
 import uz.pdp.appjparelationships.repository.UniversityRepository;
 
-import java.util.List;
 import java.util.Optional;
 
 @RestController
+@RequestMapping("/university")
 public class UniversityController {
-    @Autowired
-    UniversityRepository universityRepository;
-    @Autowired
-    AddressRepository addressRepository;
+
+    private final UniversityRepository universityRepository;
+    private final AddressRepository addressRepository;
 
 
-    //READ
-    @RequestMapping(value = "/university", method = RequestMethod.GET)
-    public List<University> getUniversities() {
-        List<University> universityList = universityRepository.findAll();
-        return universityList;
+    public UniversityController(UniversityRepository universityRepository, AddressRepository addressRepository) {
+        this.universityRepository = universityRepository;
+        this.addressRepository = addressRepository;
     }
 
 
-    //CREATE
-    @RequestMapping(value = "/university", method = RequestMethod.POST)
+    @GetMapping("/{id}")
+    public University getUniversityById(@PathVariable Integer id){
+        Optional<University> optionalUniversity = universityRepository.findById(id);
+        return optionalUniversity.orElseGet(University::new);
+    }
+
+
+    @GetMapping
+    public Page<University> getUniversities(@RequestParam(defaultValue = "0") Integer pageNo,
+                                            @RequestParam(defaultValue = "10") Integer pageSize) {
+
+        if (pageNo != 0)
+            pageNo--;
+
+        Pageable pageable = PageRequest.of(pageNo, pageSize);
+
+        return universityRepository.findAll(pageable);
+    }
+
+
+    @PostMapping
     public String addUniversity(@RequestBody UniversityDto universityDto) {
 
         String name = universityDto.getName();
+        if (universityRepository.existsByName(name))
+            return "This University already exists !";
 
-        if (name == null)
-            return "University Name is Empty !";
-
-        //YANGI ADDRES OCHIB OLDIK
         Address address = new Address();
         address.setCity(universityDto.getCity());
         address.setDistrict(universityDto.getDistrict());
         address.setStreet(universityDto.getStreet());
 
-        //YASAB OLGAN ADDRESS OBJECTIMIZNI DB GA SAQLAMOCHI BO'LDIK
-        // VA BAZADA BUNDAY ADDRESS BOR YO'QLIGINI TEKSHIRDIK
-        // ADDRESS BAZADA MAVJUD BO'LMASA BAZAGA QO'SHIB QO'YDIK
-        Address savedAddress;
-
         try {
-            savedAddress = addressRepository.save(address);
+            address = addressRepository.save(address);
         }
         catch (Exception e){
             return "This address already exist !";
         }
 
-        //YANGI UNIVERSITET YASAB OLDIK
         University university = new University();
         university.setName(name);
-        university.setAddress(savedAddress);
+        university.setAddress(address);
         universityRepository.save(university);
-
-        return "University added";
+        return "University Added Successfully !";
     }
 
-    //UPDATE
-    @RequestMapping(value = "/university/{id}", method = RequestMethod.PUT)
-    public String editUniversity(@PathVariable Integer id, @RequestBody UniversityDto universityDto) {
-        Optional<University> optionalUniversity = universityRepository.findById(id);
-        if (optionalUniversity.isPresent()) {
 
-            University university = optionalUniversity.get();
+    @PutMapping("/{id}")
+    public String updateUniversityById(@PathVariable Integer id, @RequestBody UniversityDto universityDto) {
+
+        Optional<University> optionalUniversity = universityRepository.findById(id);
+
+        if (optionalUniversity.isPresent()) {
 
             String name = universityDto.getName();
 
-            boolean b = false;
+            University university = optionalUniversity.get();
 
-            if (name != null && !name.equals(university.getName())){
-                university.setName(name);
-                universityRepository.save(university);
-                b = true;
+            if (!university.getName().equals(name)){
+                if (universityRepository.existsByName(name))
+                    return "This University already exists !";
             }
 
-
-
-            //universitet addressi
             Address address = university.getAddress();
-            String x = universityDto.getCity();
-            if (x != null)
-                address.setCity(x);
-            x = universityDto.getDistrict();
-            if(x != null)
-                address.setDistrict(x);
-            x = universityDto.getStreet();
-            if(x != null)
-                address.setStreet(x);
 
-            try {
-                if (!address.equals(university.getAddress())) {
+            String city = universityDto.getCity();
+            String district = universityDto.getDistrict();
+            String street = universityDto.getStreet();
+
+            if (!address.getCity().equals(city) || !address.getDistrict().equals(district) || !address.getStreet().equals(street)){
+                address.setCity(city);
+                address.setDistrict(district);
+                address.setStreet(street);
+                try{
                     addressRepository.save(address);
-                    return "University edited";
                 }
-                if (b)
-                    return "University edited";
-                return "Nothing Changed !";
-            }
-            catch (Exception e){
-                return "This Address Already Exist !";
+                catch (Exception e){
+                    return "This address already exist !";
+                }
             }
 
+            university.setName(name);
+
+            universityRepository.save(university);
+            return "University Updated Successfully !";
         }
 
         return "University not found";
     }
 
 
-    //DELETE
-    @RequestMapping(value = "/university/{id}",method = RequestMethod.DELETE)
-    public String deleteUniversity(@PathVariable Integer id){
-        universityRepository.deleteById(id);
-        return "University deleted";
+    @DeleteMapping("/{id}")
+    public String deleteUniversityById(@PathVariable Integer id){
+        try {
+            universityRepository.deleteById(id);
+            return "University Deleted Successfully !";
+        }
+        catch (EmptyResultDataAccessException e){
+            return "University not found !";
+        }
     }
+
 }

@@ -1,6 +1,8 @@
 package uz.pdp.appjparelationships.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.*;
 import uz.pdp.appjparelationships.entity.Faculty;
 import uz.pdp.appjparelationships.entity.University;
@@ -8,111 +10,132 @@ import uz.pdp.appjparelationships.payload.FacultyDto;
 import uz.pdp.appjparelationships.repository.FacultyRepository;
 import uz.pdp.appjparelationships.repository.UniversityRepository;
 
-import java.util.List;
 import java.util.Optional;
+
 
 @RestController
 @RequestMapping(value = "/faculty")
 public class FacultyController {
 
-    @Autowired
-    FacultyRepository facultyRepository;
-    @Autowired
-    UniversityRepository universityRepository;
+    private final FacultyRepository facultyRepository;
+    private final UniversityRepository universityRepository;
 
 
-    //VAZIRLIK UCHUN
-    @GetMapping
-    public List<Faculty> getFaculties() {
-        return facultyRepository.findAll();
+    public FacultyController(FacultyRepository facultyRepository, UniversityRepository universityRepository) {
+        this.facultyRepository = facultyRepository;
+        this.universityRepository = universityRepository;
     }
 
-    //    @RequestMapping(method = RequestMethod.POST)
+
+    @GetMapping("/{id}")
+    public Faculty getFacultyById(@PathVariable Integer id){
+        Optional<Faculty> optionalFaculty = facultyRepository.findById(id);
+        return optionalFaculty.orElseGet(Faculty::new);
+    }
+
+
+    @GetMapping
+    public Page<Faculty> getFaculties(@RequestParam(defaultValue = "0") Integer pageNo,
+                                      @RequestParam(defaultValue = "10") Integer pageSize) {
+
+        if (pageNo != 0)
+            pageNo--;
+
+        Pageable pageable = PageRequest.of(pageNo, pageSize);
+
+        return facultyRepository.findAll(pageable);
+    }
+
+
+    @GetMapping("/byUniversityId/{universityId}")
+    public Page<Faculty> getFacultiesByUniversityId(@PathVariable Integer universityId,
+                                                    @RequestParam(defaultValue = "0") Integer pageNo,
+                                                    @RequestParam(defaultValue = "10") Integer pageSize) {
+
+        if (pageNo != 0)
+            pageNo--;
+
+        Pageable pageable = PageRequest.of(pageNo, pageSize);
+
+        return facultyRepository.findAllByUniversityId(universityId, pageable);
+    }
+
 
     @PostMapping
     public String addFaculty(@RequestBody FacultyDto facultyDto) {
 
-        String name = facultyDto.getName();
-        if (name == null)
-            return "Faculty Name is Empty !";
-
         Integer universityId = facultyDto.getUniversityId();
-        if (universityId == null)
-            return "University ID is Empty !";
 
-        Optional<University> optionalUniversity =
-                universityRepository.findById(universityId);
+        Optional<University> optionalUniversity = universityRepository.findById(universityId);
 
         if (!optionalUniversity.isPresent())
-            return "University not found";
-
-        boolean exists = facultyRepository.existsByNameAndUniversityId(name, universityId);
-        if (exists)
-            return "This university such faculty exist";
+            return "University not found !";
 
         Faculty faculty = new Faculty();
-        faculty.setName(name);
+        faculty.setName(facultyDto.getName());
         faculty.setUniversity(optionalUniversity.get());
-        facultyRepository.save(faculty);
-        return "Faculty saved";
-    }
-
-
-    //UNIVERSITET XODIMI UCHUN
-    @GetMapping("/byUniversityId/{universityId}")
-    public List<Faculty> getFacultiesByUniversityId(@PathVariable Integer universityId) {
-        List<Faculty> allByUniversityId = facultyRepository.findAllByUniversityId(universityId);
-        return allByUniversityId;
-    }
-
-
-    @DeleteMapping("/{id}")
-    public String deleteFaculty(@PathVariable Integer id) {
         try {
-            facultyRepository.deleteById(id);
-            return "Faculty deleted";
-        } catch (Exception e) {
-            return "Error in deleting";
+            facultyRepository.save(faculty);
+            return "Faculty Added Successfully !";
+        }
+        catch (Exception e){
+            return "This Faculty already exists in given University !";
         }
     }
 
 
     @PutMapping("/{id}")
-    public String editFaculty(@PathVariable Integer id, @RequestBody FacultyDto facultyDto) {
+    public String updateFacultyById(@PathVariable Integer id, @RequestBody FacultyDto facultyDto) {
+
         Optional<Faculty> optionalFaculty = facultyRepository.findById(id);
 
         if (optionalFaculty.isPresent()) {
 
             Faculty faculty = optionalFaculty.get();
-
-            String name = facultyDto.getName();
-            if (name != null)
-                faculty.setName(facultyDto.getName());
+            University university = faculty.getUniversity();
 
             Integer universityId = facultyDto.getUniversityId();
 
-            if (universityId != null){
+            boolean checkChange = false;
 
-                Optional<University> optionalUniversity = universityRepository.findById(
-                        facultyDto.getUniversityId());
-
+            if (!university.getId().equals(universityId)) {
+                Optional<University> optionalUniversity = universityRepository.findById(universityId);
                 if (!optionalUniversity.isPresent())
-                    return "University not found";
-
-                faculty.setUniversity(optionalUniversity.get());
+                    return "University not found !";
+                university = optionalUniversity.get();
+                checkChange = true;
             }
 
-            try {
-                facultyRepository.save(faculty);
-                return "Faculty edited";
-            }
-            catch (Exception e){
-                return "Tnis Faculty Already Exists !";
+            String facultyName = facultyDto.getName();
+            if (!faculty.getName().equals(facultyName))
+                checkChange = true;
+
+            if (checkChange) {
+                faculty.setName(facultyName);
+                faculty.setUniversity(university);
+                try {
+                    facultyRepository.save(faculty);
+                    return "Faculty Updated Successfully !";
+                } catch (Exception e) {
+                    return "This Faculty already exists in given University !";
+                }
             }
 
+            return "Faculty Updated Successfully !";
         }
 
-        return "Faculty not found";
+        return "Faculty not found !";
+    }
+
+
+    @DeleteMapping("/{id}")
+    public String deleteFacultyById(@PathVariable Integer id) {
+        try {
+            facultyRepository.deleteById(id);
+            return "Faculty Deleted Successfully !";
+        } catch (Exception e) {
+            return "Faculty not found !";
+        }
     }
 
 

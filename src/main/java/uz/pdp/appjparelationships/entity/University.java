@@ -17,9 +17,9 @@ public class University {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private String name;
     
-    @OneToOne(optional = false)
+    @OneToOne(optional = false, orphanRemoval = true)
     private Address address;
 }

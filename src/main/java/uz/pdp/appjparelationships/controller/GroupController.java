@@ -1,6 +1,8 @@
 package uz.pdp.appjparelationships.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.*;
 import uz.pdp.appjparelationships.entity.Faculty;
 import uz.pdp.appjparelationships.entity.Group;
@@ -8,47 +10,75 @@ import uz.pdp.appjparelationships.payload.GroupDto;
 import uz.pdp.appjparelationships.repository.FacultyRepository;
 import uz.pdp.appjparelationships.repository.GroupRepository;
 
-import java.util.List;
 import java.util.Optional;
+
 
 @RestController
 @RequestMapping("/group")
 public class GroupController {
 
-    @Autowired
-    GroupRepository groupRepository;
-    @Autowired
-    FacultyRepository facultyRepository;
+    private final GroupRepository groupRepository;
+    private final FacultyRepository facultyRepository;
 
-    //VAZIRLIK UCHUN
-    //READ
+
+    public GroupController(GroupRepository groupRepository, FacultyRepository facultyRepository) {
+        this.groupRepository = groupRepository;
+        this.facultyRepository = facultyRepository;
+    }
+
+
+    @GetMapping("/{id}")
+    public Group getGroupById(@PathVariable Integer id){
+        Optional<Group> optionalGroup = groupRepository.findById(id);
+        return optionalGroup.orElseGet(Group::new);
+    }
+
+
     @GetMapping
-    public List<Group> getGroups() {
-        return groupRepository.findAll();
+    public Page<Group> getGroups(@RequestParam(defaultValue = "0") Integer pageNo,
+                                 @RequestParam(defaultValue = "10") Integer pageSize) {
+
+        if (pageNo != 0)
+            pageNo--;
+
+        Pageable pageable = PageRequest.of(pageNo, pageSize);
+
+        return groupRepository.findAll(pageable);
     }
 
-    //UNIVERSITET MAS'UL XODIMI UCHUN
+
     @GetMapping("/byUniversityId/{universityId}")
-    public List<Group> getGroupsByUniversityId(@PathVariable Integer universityId) {
-        return groupRepository.findAllByFaculty_UniversityId(universityId);
+    public Page<Group> getGroupsByUniversityId(@PathVariable Integer universityId,
+                                               @RequestParam(defaultValue = "0") Integer pageNo,
+                                               @RequestParam(defaultValue = "10") Integer pageSize) {
+
+        if (pageNo != 0)
+            pageNo--;
+
+        Pageable pageable = PageRequest.of(pageNo, pageSize);
+
+        return groupRepository.findAllByFaculty_UniversityId(universityId, pageable);
     }
 
-    // Fakultet Dekanati uchun
+
     @GetMapping("/byFacultyId/{facultyId}")
-    public List<Group> getGroupsByFacultyId(@PathVariable Integer facultyId){
-        return groupRepository.findAllByFaculty_Id(facultyId);
+    public Page<Group> getGroupsByFacultyId(@PathVariable Integer facultyId,
+                                            @RequestParam(defaultValue = "0") Integer pageNo,
+                                            @RequestParam(defaultValue = "10") Integer pageSize){
+
+        if (pageNo != 0)
+            pageNo--;
+
+        Pageable pageable = PageRequest.of(pageNo, pageSize);
+
+        return groupRepository.findAllByFaculty_Id(facultyId, pageable);
     }
+
 
     @PostMapping
     public String addGroup(@RequestBody GroupDto groupDto) {
 
         Integer facultyId = groupDto.getFacultyId();
-        if (facultyId == null)
-            return "Group ID is Empty !";
-
-        String name = groupDto.getName();
-        if (name == null)
-            return "Group Name is Empty !";
 
         Optional<Faculty> optionalFaculty = facultyRepository.findById(facultyId);
         if (!optionalFaculty.isPresent())
@@ -60,53 +90,64 @@ public class GroupController {
 
         try {
             groupRepository.save(group);
-            return "Group Added !";
+            return "Group Added Successfully !";
         }
         catch (Exception e){
-            return "This Group Already Exists !";
-        }
-
-    }
-
-    @DeleteMapping("/{id}")
-    public String deleteGroup(@PathVariable Integer id){
-        try {
-            groupRepository.deleteById(id);
-            return "Group deleted !";
-        }
-        catch (Exception e){
-            return "Error in deleting group !";
+            return "This Group already exists in given Faculty !";
         }
     }
+
 
     @PutMapping("/{id}")
-    public String updateGroup(@PathVariable Integer id, @RequestBody GroupDto groupDto){
+    public String updateGroupById(@PathVariable Integer id, @RequestBody GroupDto groupDto){
 
         Optional<Group> byId = groupRepository.findById(id);
         if (!byId.isPresent())
             return "Group Not Found !";
 
         Group group = byId.get();
+        Faculty faculty = group.getFaculty();
 
-        String name = groupDto.getName();
-        if (name != null)
-            group.setName(name);
+        boolean checkChange = false;
 
         Integer facultyId = groupDto.getFacultyId();
-        if (facultyId != null){
-            Optional<Faculty> byId1 = facultyRepository.findById(facultyId);
-            if (!byId1.isPresent())
+        if (!faculty.getId().equals(facultyId)){
+            Optional<Faculty> optionalFaculty = facultyRepository.findById(facultyId);
+            if (!optionalFaculty.isPresent())
                 return "Faculty Not Found !";
-            group.setFaculty(byId1.get());
+            faculty = optionalFaculty.get();
+            checkChange = true;
         }
 
+        String name = groupDto.getName();
+        if (!group.getName().equals(name))
+            checkChange = true;
+
+        if (checkChange) {
+            try {
+                group.setName(name);
+                group.setFaculty(faculty);
+                groupRepository.save(group);
+                return "Group Updated Successfully !";
+            } catch (Exception e) {
+                return "This Group already exists in given Faculty !";
+            }
+        }
+
+        return "Group Updated Successfully !";
+    }
+
+
+    @DeleteMapping("/{id}")
+    public String deleteGroupById(@PathVariable Integer id){
         try {
-            groupRepository.save(group);
-            return "Group Updated Succesfully !";
+            groupRepository.deleteById(id);
+            return "Group Deleted Successfully !";
         }
         catch (Exception e){
-            return "This Group Already Exists In Given Faculty !";
+            return "Group Not Found !";
         }
     }
+
 
 }
